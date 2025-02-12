@@ -22,7 +22,6 @@ const (
 
 const defaultPenalty = 1e5
 
-// WrapString wraps s into a paragraph of lines of length lim, with minimal
 // raggedness.
 func WrapString(s string, lim int) ([]string, int) {
 	if s == sp {
