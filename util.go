@@ -21,7 +21,7 @@ func DisplayWidth(str string) int {
 	return runewidth.StringWidth(ansi.ReplaceAllLiteralString(str, ""))
 }
 
-// Simple Condition for string
+// ConditionString Simple Condition for string
 // Returns value based on condition
 func ConditionString(cond bool, valid, inValid string) string {
 	if cond {
@@ -34,7 +34,7 @@ func isNumOrSpace(r rune) bool {
 	return ('0' <= r && r <= '9') || r == ' '
 }
 
-// Format Table Header
+// Title Format Table Header
 // Replace _ , . and spaces
 func Title(name string) string {
 	origLen := len(name)
@@ -61,7 +61,7 @@ func Title(name string) string {
 }
 
 // Pad String
-// Attempts to play string in the center
+// Attempts to place string in the center
 func Pad(s, pad string, width int) string {
 	gap := width - DisplayWidth(s)
 	if gap > 0 {
@@ -72,8 +72,8 @@ func Pad(s, pad string, width int) string {
 	return s
 }
 
-// Pad String Right position
-// This would pace string at the left side fo the screen
+// PadRight Pad String Right position
+// This would place string at the left side of the screen
 func PadRight(s, pad string, width int) string {
 	gap := width - DisplayWidth(s)
 	if gap > 0 {
@@ -82,8 +82,8 @@ func PadRight(s, pad string, width int) string {
 	return s
 }
 
-// Pad String Left position
-// This would pace string at the right side fo the screen
+// PadLeft Pad String Left position
+// This would place string at the right side of the screen
 func PadLeft(s, pad string, width int) string {
 	gap := width - DisplayWidth(s)
 	if gap > 0 {

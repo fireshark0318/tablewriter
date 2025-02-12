@@ -18,6 +18,7 @@ import (
 )
 
 func checkEqual(t *testing.T, got, want interface{}, msgs ...interface{}) {
+	t.Helper()
 	if !reflect.DeepEqual(got, want) {
 		buf := bytes.Buffer{}
 		buf.WriteString("got:\n[%v]\nwant:\n[%v]\n")
@@ -54,7 +55,7 @@ func ExampleShort() {
 	// +------+-----------------------+--------+
 }
 
-func ExampleLong() {
+func ExampleTable() {
 	data := [][]string{
 		{"Learn East has computers with adapted keyboards with enlarged print etc", "  Some Data  ", " Another Data"},
 		{"Instead of lining up the letters all ", "the way across, he splits the keyboard in two", "Like most ergonomic keyboards", "See Data"},
@@ -73,7 +74,7 @@ func ExampleLong() {
 	// Output: *================================*================================*===============================*==========*
 	// |              NAME              |              SIGN              |            RATING             |          |
 	// *================================*================================*===============================*==========*
-	// | Learn East has computers       |   Some Data                    |  Another Data                 |
+	// | Learn East has computers       | Some Data                      | Another Data                  |
 	// | with adapted keyboards with    |                                |                               |
 	// | enlarged print etc             |                                |                               |
 	// | Instead of lining up the       | the way across, he splits the  | Like most ergonomic keyboards | See Data |
@@ -81,7 +82,7 @@ func ExampleLong() {
 	// *================================*================================*===============================*==========*
 }
 
-func ExampleCSV() {
+func ExampleNewCSV() {
 	table, _ := NewCSV(os.Stdout, "testdata/test.csv", true)
 	table.SetCenterSeparator("*")
 	table.SetRowSeparator("=")
@@ -95,6 +96,133 @@ func ExampleCSV() {
 	// | Kathy      | Smith     |  687987 |
 	// | Bob        | McCornick | 3979870 |
 	// *============*===========*=========*
+}
+
+func ExampleTable_SetUnicodeHV() {
+	data := [][]string{
+		{"Regular", "regular line", "1"},
+		{"Thick", "particularly thick line", "2"},
+		{"Double", "double line", "3"},
+	}
+
+	table := NewWriter(os.Stdout)
+	table.SetFooter([]string{"Constant", "Meaning", "Seq"})
+	table.SetUnicodeHV(Double, Regular)
+	table.AppendBulk(data)
+	table.Render()
+
+	// Output:
+	// ╒══════════╤═════════════════════════╤═════╕
+	// │ Regular  │ regular line            │   1 │
+	// │ Thick    │ particularly thick line │   2 │
+	// │ Double   │ double line             │   3 │
+	// ╞══════════╪═════════════════════════╪═════╡
+	// │ CONSTANT │         MEANING         │ SEQ │
+	// ╘══════════╧═════════════════════════╧═════╛
+}
+
+func TestUnicodeRegularThick(t *testing.T) {
+	data := [][]string{
+		{"Regular", "regular line", "1"},
+		{"Thick", "particularly thick line", "2"},
+		{"Double", "double line", "3"},
+	}
+	buf := &bytes.Buffer{}
+	buf.WriteRune('\n') // Makes the want literal easier to read.
+
+	table := NewWriter(buf)
+	table.SetHeader([]string{"Constant", "Meaning", "Seq"})
+	table.SetUnicodeHV(Regular, Thick)
+	table.AppendBulk(data)
+	table.Render()
+
+	want := `
+┎──────────┰─────────────────────────┰─────┒
+┃ CONSTANT ┃         MEANING         ┃ SEQ ┃
+┠──────────╂─────────────────────────╂─────┨
+┃ Regular  ┃ regular line            ┃   1 ┃
+┃ Thick    ┃ particularly thick line ┃   2 ┃
+┃ Double   ┃ double line             ┃   3 ┃
+┖──────────┸─────────────────────────┸─────┚
+`
+	checkEqual(t, buf.String(), want, "Unicode without thick vertical lines failed")
+}
+
+func TestUnicodeWithoutBorder(t *testing.T) {
+	data := [][]string{
+		{"Regular", "regular line", "1"},
+		{"Thick", "particularly thick line", "2"},
+		{"Double", "double line", "3"},
+	}
+	buf := &bytes.Buffer{}
+	buf.WriteRune('\n') // Makes the want literal easier to read.
+
+	table := NewWriter(buf)
+	table.SetHeader([]string{"Constant", "Meaning", "Seq"})
+	table.SetFooter([]string{"Constant", "Meaning", "Seq"})
+	table.SetUnicodeHV(Regular, Regular)
+	table.EnableBorder(false)
+	table.AppendBulk(data)
+	table.Render()
+
+	want := strings.ReplaceAll(`
+  CONSTANT │         MEANING         │ SEQ  $
+───────────┼─────────────────────────┼──────$
+  Regular  │ regular line            │   1  $
+  Thick    │ particularly thick line │   2  $
+  Double   │ double line             │   3  $
+───────────┼─────────────────────────┼──────$
+  CONSTANT │         MEANING         │ SEQ  $
+───────────┴─────────────────────────┴──────$
+`, "$", "") // The $ only serve to make the trailing spaces more visible.
+	checkEqual(t, buf.String(), want, "Unicode without border failed")
+}
+
+func TestUnicodeWithoutHeader(t *testing.T) {
+	data := [][]string{
+		{"Regular", "regular line", "1"},
+		{"Thick", "particularly thick line", "2"},
+		{"Double", "double line", "3"},
+	}
+	buf := &bytes.Buffer{}
+	buf.WriteRune('\n') // Makes the want literal easier to read.
+
+	table := NewWriter(buf)
+	table.SetUnicodeHV(Regular, Regular)
+	table.AppendBulk(data)
+	table.Render()
+
+	want := `
+┌─────────┬─────────────────────────┬───┐
+│ Regular │ regular line            │ 1 │
+│ Thick   │ particularly thick line │ 2 │
+│ Double  │ double line             │ 3 │
+└─────────┴─────────────────────────┴───┘
+`
+	checkEqual(t, buf.String(), want, "Unicode without border failed")
+}
+
+func TestUnicodeWithoutBorderOrHeader(t *testing.T) {
+	data := [][]string{
+		{"Regular", "regular line", "1"},
+		{"Thick", "particularly thick line", "2"},
+		{"Double", "double line", "3"},
+	}
+	buf := &bytes.Buffer{}
+	buf.WriteRune('\n') // Makes the want literal easier to read.
+
+	table := NewWriter(buf)
+	table.SetUnicodeHV(Regular, Regular)
+	table.EnableBorder(false)
+	table.AppendBulk(data)
+	table.Render()
+
+	want := strings.ReplaceAll(`
+  Regular │ regular line            │ 1  $
+  Thick   │ particularly thick line │ 2  $
+  Double  │ double line             │ 3  $
+`, "$", "") // The $ only serve to make the trailing spaces more visible.
+	checkEqual(t, buf.String(), want, "Unicode without border failed")
 }
 
 // TestNumLines to test the numbers of lines
@@ -126,12 +254,12 @@ func TestCSVInfo(t *testing.T) {
 		return
 	}
 	table.SetAlignment(ALIGN_LEFT)
-	table.SetBorder(false)
+	table.EnableBorder(false)
 	table.Render()
 
 	got := buf.String()
 	want := `   FIELD   |     TYPE     | NULL | KEY | DEFAULT |     EXTRA       
-+----------+--------------+------+-----+---------+----------------+
+-----------+--------------+------+-----+---------+-----------------
   user_id  | smallint(5)  | NO   | PRI | NULL    | auto_increment  
   username | varchar(10)  | NO   |     | NULL    |                 
   password | varchar(100) | NO   |     | NULL    |                 
@@ -182,12 +310,12 @@ func TestNoBorder(t *testing.T) {
 	table.SetAutoWrapText(false)
 	table.SetHeader([]string{"Date", "Description", "CV2", "Amount"})
 	table.SetFooter([]string{"", "", "Total", "$145.93"}) // Add Footer
-	table.SetBorder(false)                                // Set Border to false
+	table.EnableBorder(false)                             // Set Border to false
 	table.AppendBulk(data)                                // Add Bulk Data
 	table.Render()
 
 	want := `    DATE   |       DESCRIPTION        |  CV2  | AMOUNT   
-+----------+--------------------------+-------+---------+
+-----------+--------------------------+-------+----------
   1/1/2014 | Domain name              |  2233 | $10.98   
   1/1/2014 | January Hosting          |  2233 | $54.95   
            |     (empty)              |       |          
@@ -195,9 +323,64 @@ func TestNoBorder(t *testing.T) {
   1/4/2014 | February Hosting         |  2233 | $51.00   
   1/4/2014 | February Extra Bandwidth |  2233 | $30.00   
   1/4/2014 |     (Discount)           |  2233 | -$1.00   
-+----------+--------------------------+-------+---------+
+-----------+--------------------------+-------+----------
                                         TOTAL | $145.93  
-                                      +-------+---------+
+                                      --------+----------
+`
+
+	checkEqual(t, buf.String(), want, "border table rendering failed")
+}
+
+func TestNoBorderUnicode(t *testing.T) {
+	data := [][]string{
+		{"1/1/2014", "Domain name", "2233", "$10.98"},
+		{"1/1/2014", "January Hosting", "2233", "$54.95"},
+		{"", "    (empty)\n    (empty)", "", ""},
+		{"1/4/2014", "February Hosting", "2233", "$51.00"},
+		{"1/4/2014", "February Extra Bandwidth", "2233", "$30.00"},
+		{"1/4/2014", "    (Discount)", "2233", "-$1.00"},
+	}
+
+	var buf bytes.Buffer
+	buf.WriteRune('\n') // Makes the want literal easier to read.
+	table := NewWriter(&buf)
+	table.SetAutoWrapText(false)
+	table.SetHeader([]string{"Date", "Description", "CV2", "Amount"})
+	table.SetFooter([]string{"", "", "Total", "$145.93"}) // Add Footer
+	table.EnableBorder(false)                             // Set Border to false
+	table.AppendBulk(data)                                // Add Bulk Data
+	table.SetUnicodeHV(Regular, Regular)
+	table.Render()
+
+	want := `
+    DATE   │       DESCRIPTION        │  CV2  │ AMOUNT   
+───────────┼──────────────────────────┼───────┼──────────
+  1/1/2014 │ Domain name              │  2233 │ $10.98   
+  1/1/2014 │ January Hosting          │  2233 │ $54.95   
+           │     (empty)              │       │          
+           │     (empty)              │       │          
+  1/4/2014 │ February Hosting         │  2233 │ $51.00   
+  1/4/2014 │ February Extra Bandwidth │  2233 │ $30.00   
+  1/4/2014 │     (Discount)           │  2233 │ -$1.00   
+───────────┴──────────────────────────┴───────┼──────────
+                                        TOTAL │ $145.93  
+                                      ────────┴──────────
+`
+	// The above is what we actually would prefer, but the below is what the code
+	// currently generates. Fixes welcome.
+	want = `
+    DATE   │       DESCRIPTION        │  CV2  │ AMOUNT   
+───────────┼──────────────────────────┼───────┼──────────
+  1/1/2014 │ Domain name              │  2233 │ $10.98   
+  1/1/2014 │ January Hosting          │  2233 │ $54.95   
+           │     (empty)              │       │          
+           │     (empty)              │       │          
+  1/4/2014 │ February Hosting         │  2233 │ $51.00   
+  1/4/2014 │ February Extra Bandwidth │  2233 │ $30.00   
+  1/4/2014 │     (Discount)           │  2233 │ -$1.00   
+───────────┼──────────────────────────┼───────┼──────────
+                                        TOTAL │ $145.93  
+                                      ────────┴──────────
 `
 
 	checkEqual(t, buf.String(), want, "border table rendering failed")
@@ -234,6 +417,62 @@ func TestWithBorder(t *testing.T) {
 +----------+--------------------------+-------+---------+
 |                                       TOTAL | $145.93 |
 +----------+--------------------------+-------+---------+
+`
+
+	checkEqual(t, buf.String(), want, "border table rendering failed")
+}
+
+func TestWithBorderUnicode(t *testing.T) {
+	data := [][]string{
+		{"1/1/2014", "Domain name", "2233", "$10.98"},
+		{"1/1/2014", "January Hosting", "2233", "$54.95"},
+		{"", "    (empty)\n    (empty)", "", ""},
+		{"1/4/2014", "February Hosting", "2233", "$51.00"},
+		{"1/4/2014", "February Extra Bandwidth", "2233", "$30.00"},
+		{"1/4/2014", "    (Discount)", "2233", "-$1.00"},
+	}
+
+	var buf bytes.Buffer
+	buf.WriteRune('\n') // Makes the want literal easier to read.
+	table := NewWriter(&buf)
+	table.SetAutoWrapText(false)
+	table.SetHeader([]string{"Date", "Description", "CV2", "Amount"})
+	table.SetFooter([]string{"", "", "Total", "$145.93"}) // Add Footer
+	table.AppendBulk(data)                                // Add Bulk Data
+	table.SetUnicodeHV(Regular, Regular)
+	table.Render()
+
+	want := `
+┌──────────┬──────────────────────────┬───────┬─────────┐
+│   DATE   │       DESCRIPTION        │  CV2  │ AMOUNT  │
+├──────────┼──────────────────────────┼───────┼─────────┤
+│ 1/1/2014 │ Domain name              │  2233 │ $10.98  │
+│ 1/1/2014 │ January Hosting          │  2233 │ $54.95  │
+│          │     (empty)              │       │         │
+│          │     (empty)              │       │         │
+│ 1/4/2014 │ February Hosting         │  2233 │ $51.00  │
+│ 1/4/2014 │ February Extra Bandwidth │  2233 │ $30.00  │
+│ 1/4/2014 │     (Discount)           │  2233 │ -$1.00  │
+├──────────┴──────────────────────────┴───────┼─────────┤
+│                                       TOTAL │ $145.93 │
+└─────────────────────────────────────────────┴─────────┘
+`
+	// The above is what we actually would prefer, but the below is what the code
+	// currently generates. Fixes welcome.
+	want = `
+┌──────────┬──────────────────────────┬───────┬─────────┐
+│   DATE   │       DESCRIPTION        │  CV2  │ AMOUNT  │
+├──────────┼──────────────────────────┼───────┼─────────┤
+│ 1/1/2014 │ Domain name              │  2233 │ $10.98  │
+│ 1/1/2014 │ January Hosting          │  2233 │ $54.95  │
+│          │     (empty)              │       │         │
+│          │     (empty)              │       │         │
+│ 1/4/2014 │ February Hosting         │  2233 │ $51.00  │
+│ 1/4/2014 │ February Extra Bandwidth │  2233 │ $30.00  │
+│ 1/4/2014 │     (Discount)           │  2233 │ -$1.00  │
+├──────────┼──────────────────────────┼───────┼─────────┤
+│                                       TOTAL │ $145.93 │
+└──────────┴──────────────────────────┴───────┴─────────┘
 `
 
 	checkEqual(t, buf.String(), want, "border table rendering failed")
@@ -390,19 +629,19 @@ func TestPrintCaptionWithFooter(t *testing.T) {
 	table.SetHeader([]string{"Date", "Description", "CV2", "Amount"})
 	table.SetFooter([]string{"", "", "Total", "$146.93"})                                                  // Add Footer
 	table.SetCaption(true, "This is a very long caption. The text should wrap to the width of the table.") // Add caption
-	table.SetBorder(false)                                                                                 // Set Border to false
+	table.EnableBorder(false)                                                                              // Set Border to false
 	table.AppendBulk(data)                                                                                 // Add Bulk Data
 	table.Render()
 
 	want := `    DATE   |       DESCRIPTION        |  CV2  | AMOUNT   
-+----------+--------------------------+-------+---------+
+-----------+--------------------------+-------+----------
   1/1/2014 | Domain name              |  2233 | $10.98   
   1/1/2014 | January Hosting          |  2233 | $54.95   
   1/4/2014 | February Hosting         |  2233 | $51.00   
   1/4/2014 | February Extra Bandwidth |  2233 | $30.00   
-+----------+--------------------------+-------+---------+
+-----------+--------------------------+-------+----------
                                         TOTAL | $146.93  
-                                      +-------+---------+
+                                      --------+----------
 This is a very long caption. The text should wrap to the
 width of the table.
 `
@@ -709,11 +948,11 @@ func TestPrintLine(t *testing.T) {
 		want = fmt.Sprintf("%s+-%s-", want, strings.Replace(val, " ", "-", -1))
 		val = val + " "
 	}
-	want = want + "+"
+	want = want + "+\n"
 	var buf bytes.Buffer
 	table := NewWriter(&buf)
 	table.SetHeader(header)
-	table.printLine(false)
+	table.printLine(false, false)
 	checkEqual(t, buf.String(), want, "line rendering failed")
 }
 
@@ -726,11 +965,11 @@ func TestAnsiStrip(t *testing.T) {
 		want = fmt.Sprintf("%s+-%s-", want, strings.Replace(val, " ", "-", -1))
 		val = val + " "
 	}
-	want = want + "+"
+	want = want + "+\n"
 	var buf bytes.Buffer
 	table := NewWriter(&buf)
 	table.SetHeader(header)
-	table.printLine(false)
+	table.printLine(false, false)
 	checkEqual(t, buf.String(), want, "line rendering failed")
 }
 
@@ -739,7 +978,7 @@ func NewCustomizedTable(out io.Writer) *Table {
 	table.SetCenterSeparator("")
 	table.SetColumnSeparator("")
 	table.SetRowSeparator("")
-	table.SetBorder(false)
+	table.EnableBorder(false)
 	table.SetAlignment(ALIGN_LEFT)
 	table.SetHeader([]string{})
 	return table
@@ -841,8 +1080,8 @@ func TestAutoMergeRows(t *testing.T) {
 | NAME |              SIGN              | RATING |
 +------+--------------------------------+--------+
 | A    | The Good                       |    500 |
-+------+--------------------------------+--------+
-| A    | The Very very very very very   |    288 |
++      +--------------------------------+--------+
+|      | The Very very very very very   |    288 |
 |      | Bad Man                        |        |
 +------+                                +--------+
 | B    |                                |    120 |
@@ -850,6 +1089,79 @@ func TestAutoMergeRows(t *testing.T) {
 +------+--------------------------------+--------+
 | C    | The Very very Bad Man          |    200 |
 +------+--------------------------------+--------+
+`
+	checkEqual(t, buf.String(), want)
+
+	buf.Reset()
+	table = NewWriter(&buf)
+	table.SetHeader([]string{"Name", "Sign", "Rating"})
+
+	dataWithlongText2 := [][]string{
+		{"A", "The Good", "500"},
+		{"A", "The Very very very very very Bad Man", "288"},
+		{"B", "The Very very Bad Man", "120"},
+	}
+	table.AppendBulk(dataWithlongText2)
+	table.SetAutoMergeCells(true)
+	table.SetRowLine(true)
+	table.Render()
+	want = `+------+--------------------------------+--------+
+| NAME |              SIGN              | RATING |
++------+--------------------------------+--------+
+| A    | The Good                       |    500 |
++      +--------------------------------+--------+
+|      | The Very very very very very   |    288 |
+|      | Bad Man                        |        |
++------+--------------------------------+--------+
+| B    | The Very very Bad Man          |    120 |
++------+--------------------------------+--------+
+`
+	checkEqual(t, buf.String(), want)
+}
+
+func TestAutoMergeRowsUnicode(t *testing.T) {
+	data := [][]string{
+		{"A", "The Good", "500"},
+		{"A", "The Very very Bad Man", "288"},
+		{"B", "The Very very Bad Man", "120"},
+		{"B", "The Very very Bad Man", "200"},
+	}
+	var buf bytes.Buffer
+	buf.WriteRune('\n') // Makes the want literal easier to read.
+	table := NewWriter(&buf)
+	table.SetHeader([]string{"Name", "Sign", "Rating"})
+	table.AppendBulk(data)
+	table.SetAutoMergeCells(true)
+	table.SetRowLine(true)
+	table.SetUnicodeHV(Regular, Regular)
+	table.Render()
+	want := `
+┌──────┬───────────────────────┬────────┐
+│ NAME │         SIGN          │ RATING │
+├──────┼───────────────────────┼────────┤
+│ A    │ The Good              │    500 │
+│      ├───────────────────────┼────────┤
+│      │ The Very very Bad Man │    288 │
+├──────┤                       ├────────┤
+│ B    │                       │    120 │
+│      │                       ├────────┤
+│      │                       │    200 │
+└──────┴───────────────────────┴────────┘
+`
+	// The above is what we actually would prefer, but the below is what the code
+	// currently generates. Fixes welcome.
+	want = `
+┌──────┬───────────────────────┬────────┐
+│ NAME │         SIGN          │ RATING │
+├──────┼───────────────────────┼────────┤
+│ A    │ The Good              │    500 │
+├      ┼───────────────────────┼────────┤
+│      │ The Very very Bad Man │    288 │
+├──────┼                       ┼────────┤
+│ B    │                       │    120 │
+├      ┼                       ┼────────┤
+│      │                       │    200 │
+└──────┴───────────────────────┴────────┘
 `
 	checkEqual(t, buf.String(), want)
 }
@@ -989,6 +1301,32 @@ func TestMoreFooterColumnsThanHeaders(t *testing.T) {
 	checkEqual(t, buf.String(), want)
 }
 
+func TestLessFooterColumnsThanHeaders(t *testing.T) {
+	var (
+		buf    = &bytes.Buffer{}
+		table  = NewWriter(buf)
+		header = []string{"A", "B", "C"}
+		data   = [][]string{
+			{"1", "2", "3"},
+		}
+		footer = []string{"a", "b"}
+		want   = `+---+---+---+
+| A | B | C |
++---+---+---+
+| 1 | 2 | 3 |
++---+---+---+
+| A | B |   |
++---+---+---+
+`
+	)
+	table.SetHeader(header)
+	table.SetFooter(footer)
+	table.AppendBulk(data)
+	table.Render()
+
+	checkEqual(t, buf.String(), want)
+}
+
 func TestSetColMinWidth(t *testing.T) {
 	var (
 		buf    = &bytes.Buffer{}
@@ -1022,6 +1360,34 @@ func TestWrapString(t *testing.T) {
 	want := []string{"ああああああああああああああああああああああああ", "あああああああ"}
 	got, _ := WrapString("ああああああああああああああああああああああああ あああああああ", 55)
 	checkEqual(t, got, want)
+}
+
+func TestNumberAlign(t *testing.T) {
+	var (
+		buf   = &bytes.Buffer{}
+		table = NewWriter(buf)
+		data  = [][]string{
+			{"AAAAAAAAAAAAA", "BBBBBBBBBBBBB", "CCCCCCCCCCCCCC"},
+			{"A", "B", "C"},
+			{"123456789", "2", "3"},
+			{"1", "2", "123,456,789"},
+			{"1", "123,456.789", "3"},
+			{"-123,456", "-2", "-3"},
+		}
+		want = `+---------------+---------------+----------------+
+| AAAAAAAAAAAAA | BBBBBBBBBBBBB | CCCCCCCCCCCCCC |
+| A             | B             | C              |
+|     123456789 |             2 |              3 |
+|             1 |             2 |    123,456,789 |
+|             1 |   123,456.789 |              3 |
+|      -123,456 |            -2 |             -3 |
++---------------+---------------+----------------+
+`
+	)
+	table.AppendBulk(data)
+	table.Render()
+
+	checkEqual(t, buf.String(), want)
 }
 
 func TestCustomAlign(t *testing.T) {
@@ -1089,5 +1455,236 @@ func TestTitle(t *testing.T) {
 		if got != tt.want {
 			t.Errorf("want %q, bot got %q", tt.want, got)
 		}
+	}
+}
+
+func TestKubeFormat(t *testing.T) {
+	data := [][]string{
+		{"1/1/2014", "jan_hosting", "2233", "$10.98"},
+		{"1/1/2014", "feb_hosting", "2233", "$54.95"},
+		{"1/4/2014", "feb_extra_bandwidth", "2233", "$51.00"},
+		{"1/4/2014", "mar_hosting", "2233", "$30.00"},
+	}
+
+	var buf bytes.Buffer
+	table := NewWriter(&buf)
+	table.SetHeader([]string{"Date", "Description", "CV2", "Amount"})
+	table.SetAutoWrapText(false)
+	table.SetAutoFormatHeaders(true)
+	table.SetHeaderAlignment(ALIGN_LEFT)
+	table.SetAlignment(ALIGN_LEFT)
+	table.SetCenterSeparator("")
+	table.SetColumnSeparator("")
+	table.SetRowSeparator("")
+	table.SetHeaderLine(false)
+	table.EnableBorder(false)
+	table.SetTablePadding("\t") // pad with tabs
+	table.SetNoWhiteSpace(true)
+	table.AppendBulk(data) // Add Bulk Data
+	table.Render()
+
+	want := `DATE    	DESCRIPTION        	CV2 	AMOUNT 
+1/1/2014	jan_hosting        	2233	$10.98	
+1/1/2014	feb_hosting        	2233	$54.95	
+1/4/2014	feb_extra_bandwidth	2233	$51.00	
+1/4/2014	mar_hosting        	2233	$30.00	
+`
+
+	checkEqual(t, buf.String(), want, "kube format rendering failed")
+}
+
+type testStringerType struct{}
+
+func (t testStringerType) String() string { return "testStringerType" }
+
+func TestStructs(t *testing.T) {
+	type testType struct {
+		A string
+		B int
+		C testStringerType
+		D bool `tablewriter:"DD"`
+	}
+	type testType2 struct {
+		A *string
+		B *int
+		C *testStringerType
+		D *bool `tablewriter:"DD"`
+	}
+	type testType3 struct {
+		A **string
+		B **int
+		C **testStringerType
+		D **bool `tablewriter:"DD"`
+	}
+	a := "a"
+	b := 1
+	c := testStringerType{}
+	d := true
+
+	ap := &a
+	bp := &b
+	cp := &c
+	dp := &d
+
+	tests := []struct {
+		name    string
+		values  interface{}
+		wantErr bool
+		want    string
+	}{
+		{
+			name: "slice of struct",
+			values: []testType{
+				{A: "AAA", B: 11, D: true},
+				{A: "BBB", B: 22},
+			},
+			want: `
++-----+----+------------------+-------+
+|  A  | B  |        C         |  DD   |
++-----+----+------------------+-------+
+| AAA | 11 | testStringerType | true  |
+| BBB | 22 | testStringerType | false |
++-----+----+------------------+-------+
+`,
+		},
+		{
+			name: "slice of struct pointer",
+			values: []*testType{
+				{A: "AAA", B: 11, D: true},
+				{A: "BBB", B: 22},
+			},
+			want: `
++-----+----+------------------+-------+
+|  A  | B  |        C         |  DD   |
++-----+----+------------------+-------+
+| AAA | 11 | testStringerType | true  |
+| BBB | 22 | testStringerType | false |
++-----+----+------------------+-------+
+`,
+		},
+		{
+			name: "pointer field",
+			values: []*testType2{
+				{A: &a, B: &b, C: &c, D: &d},
+			},
+			want: `
++---+---+------------------+------+
+| A | B |        C         |  DD  |
++---+---+------------------+------+
+| a | 1 | testStringerType | true |
++---+---+------------------+------+
+`,
+		},
+		{
+			name: "nil pointer field",
+			values: []*testType2{
+				{A: nil, B: nil, C: nil, D: nil},
+			},
+			want: `
++-----+-----+-----+-----+
+|  A  |  B  |  C  | DD  |
++-----+-----+-----+-----+
+| nil | nil | nil | nil |
++-----+-----+-----+-----+
+`,
+		},
+		{
+			name: "typed nil pointer field",
+			values: []*testType2{
+				{A: (*string)(nil), B: (*int)(nil), C: (*testStringerType)(nil), D: (*bool)(nil)},
+			},
+			want: `
++-----+-----+-----+-----+
+|  A  |  B  |  C  | DD  |
++-----+-----+-----+-----+
+| nil | nil | nil | nil |
++-----+-----+-----+-----+
+`,
+		},
+		{
+			name: "pointer of pointer field",
+			values: []*testType3{
+				{A: &ap, B: &bp, C: &cp, D: &dp},
+			},
+			want: `
++---+---+------------------+------+
+| A | B |        C         |  DD  |
++---+---+------------------+------+
+| a | 1 | testStringerType | true |
++---+---+------------------+------+
+`,
+		},
+		{
+			name:    "invalid input",
+			values:  interface{}(1),
+			wantErr: true,
+		},
+		{
+			name:    "invalid input",
+			values:  testType{},
+			wantErr: true,
+		},
+		{
+			name:    "invalid input",
+			values:  &testType{},
+			wantErr: true,
+		},
+		{
+			name:    "nil value",
+			values:  nil,
+			wantErr: true,
+		},
+		{
+			name:    "the first element is nil",
+			values:  []*testType{nil, nil},
+			wantErr: true,
+		},
+		{
+			name:    "empty slice",
+			values:  []testType{},
+			wantErr: true,
+		},
+		{
+			name: "mixed slice", // TODO: Should we support this case?
+			values: []interface{}{
+				testType{A: "a", B: 2, C: c, D: false},
+				testType2{A: &a, B: &b, C: &c, D: &d},
+				testType3{A: &ap, B: &bp, C: &cp, D: &dp},
+			},
+			wantErr: true,
+		},
+		{
+			name: "skip nil element",
+			values: []*testType{
+				{A: "a", B: 1, D: true},
+				nil,
+				nil,
+				{A: "A", B: 3, D: false},
+			},
+			want: `
++---+---+------------------+-------+
+| A | B |        C         |  DD   |
++---+---+------------------+-------+
+| a | 1 | testStringerType | true  |
+| A | 3 | testStringerType | false |
++---+---+------------------+-------+
+`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			table := NewWriter(&buf)
+			err := table.SetStructs(tt.values)
+			if tt.wantErr != (err != nil) {
+				t.Fatal(tt.wantErr, err)
+			}
+			if tt.wantErr {
+				t.Log(err)
+				return
+			}
+			table.Render()
+			checkEqual(t, buf.String(), strings.TrimPrefix(tt.want, "\n"))
+		})
 	}
 }
