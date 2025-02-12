@@ -318,6 +318,11 @@ func (t *Table) SetAutoMergeCellsByColumnIndex(cols []int) {
 	}
 }
 
+// SetOutput set table output
+func (t *Table) SetOutput(w io.Writer) {
+	t.out = w
+}
+
 // SetBorder Set Table Border
 // This would enable / disable line around the table
 // Deprecated: use EnableBorder
@@ -683,9 +688,9 @@ func (t *Table) printFooter() {
 	padFunc := pad(t.fAlign)
 
 	// Checking for ANSI escape sequences for header
-	is_esc_seq := false
+	isEscSeq := false
 	if len(t.footerParams) > 0 {
-		is_esc_seq = true
+		isEscSeq = true
 	}
 
 	// Maximum height.
@@ -718,7 +723,7 @@ func (t *Table) printFooter() {
 				erasePad[y] = true
 			}
 
-			if is_esc_seq {
+			if isEscSeq {
 				fmt.Fprintf(t.out, " %s %s",
 					format(padFunc(f, SPACE, v),
 						t.footerParams[y]), pad)
@@ -828,7 +833,7 @@ func (t *Table) getTableWidth() int {
 	// spaces := ncols * 2
 	// seps := ncols + 1
 
-	return (chars + (3 * t.colSize) + 2)
+	return chars + (3 * t.colSize) + 2
 }
 
 // printRows - print all the rows
